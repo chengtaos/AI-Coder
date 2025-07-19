@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Coder</title>
+    <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🤖 AI Coder智能编程助手</h1>
+        <p>智能助手将深度分析您的需求，精心制定执行方案，并逐步高效完成任务</p>
+    </div>
+
+    <div class="main-content">
+        <div class="chat-area">
+            <div class="messages" id="messages">
+                <div class="message assistant">
+                    <div>
+                        <div class="message-role">助手</div>
+                        <div class="message-content">
+                            👋 您好！我是您的 AI 编程助手，能为您提供以下帮助：
+                            <br><br>
+                            📁 <strong>读取文件</strong> - 支持分页查看文件内容
+                            <br>✏️ <strong>写入文件</strong> - 可创建新文件或覆盖现有文件
+                            <br>🔧 <strong>编辑文件</strong> - 借助差异预览进行精准编辑
+                            <br>📋 <strong>列出目录</strong> - 快速浏览目录结构
+                            <br><br>
+                            您可以尝试让我创建一个简单项目、读取文件内容或探索工作区！
+                            <br><br>
+                            <em>工作区路径: /workspace</em>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="loading" id="loading">
+                <div>🤔 AI正在思考中...</div>
+            </div>
+
+            <div class="input-area">
+                <label for="messageInput">请输入您的需求：</label>
+                <input type="text" id="messageInput"
+                       placeholder="请让我创建文件、读取内容或管理您的项目..."/>
+                <button onclick="sendMessage()" id="sendBtn">发送</button>
+                <button onclick="clearHistory()" class="clear-btn" id="clearBtn">清空</button>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h3>🚀 快捷操作</h3>
+            <div class="quick-actions">
+                <div class="quick-action" onclick="quickAction('列出工作区目录')">
+                    📁 列出工作区目录
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个简单的 Java Hello World 项目')">
+                    ☕ 创建 Java Hello World 项目
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个包含 HTML、CSS 和 JS 的简单 Web 项目')">
+                    🌐 创建 Web 项目
+                </div>
+                <div class="quick-action" onclick="quickAction('为该项目创建一个 README.md 文件')">
+                    📝 创建 README.md 文件
+                </div>
+                <div class="quick-action" onclick="quickAction('递归显示当前目录结构')">
+                    🌳 显示目录树
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个打印 hello world 的简单 Python 脚本')">
+                    🐍 创建 Python 脚本
+                </div>
+            </div>
+
+            <h3>🔄 连续任务测试</h3>
+            <div class="quick-actions">
+                <div class="quick-action" onclick="quickAction('创建一个包含组件、样式和 package.json 的完整 React 项目')">
+                    ⚛️ 创建 React 项目
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个包含 HTML、CSS、JavaScript 前端和 Node.js 后端的全栈待办事项应用')">
+                    📋 创建待办事项应用
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个包含控制器、服务和模型类的 Spring Boot REST API 项目')">
+                    🍃 创建 Spring Boot API 项目
+                </div>
+                <div class="quick-action" onclick="quickAction('创建一个包含多个 HTML 页面、CSS 样式和 JavaScript 功能的完整博客网站')">
+                    📰 创建博客网站
+                </div>
+            </div>
+
+            <div id="status" class="status" style="display: none;"></div>
+
+            <!-- 新增：工具配置入口 -->
+            <h3>🔧 工具配置</h3>
+            <div class="quick-actions">
+                <div class="quick-action" onclick="openToolConfig()">
+                    ⚙️ 配置动态工具
+                </div>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3>💡 操作提示</h3>
+                <div style="font-size: 12px; color: #666; line-height: 1.4;">
+                    • 要求分步创建项目<br>
+                    • 编辑前先请求查看文件内容<br>
+                    • 使用明确的文件路径<br>
+                    • 先询问目录结构<br>
+                    • 尝试连续操作
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 工具配置模态框 -->
+<div id="toolConfigModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🔧 动态工具配置</h2>
+            <span class="close" onclick="closeToolConfig()">&times;</span>
+        </div>
+
+        <div class="modal-body">
+            <!-- 标签页导航 -->
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="switchTab('system-tools')">系统工具</button>
+                <button class="tab-btn" onclick="switchTab('mcp-tools')">MCP 工具</button>
+                <button class="tab-btn" onclick="switchTab('add-mcp')">添加 MCP 服务器</button>
+            </div>
+
+            <!-- 系统工具标签页 -->
+            <div id="system-tools" class="tab-content active">
+                <div class="tool-section">
+                    <h3>系统内置工具</h3>
+                    <div id="systemToolsList" class="tools-list">
+                        <div class="loading-tools">正在加载系统工具...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MCP 工具标签页 -->
+            <div id="mcp-tools" class="tab-content">
+                <div class="tool-section">
+                    <h3>MCP 服务器工具</h3>
+                    <div id="mcpToolsList" class="tools-list">
+                        <div class="loading-tools">正在加载 MCP 工具...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 添加 MCP 服务器标签页 -->
+            <div id="add-mcp" class="tab-content">
+                <div class="tool-section">
+                    <h3>添加 MCP 服务器</h3>
+
+                    <!-- JSON 配置方式 -->
+                    <div class="config-method">
+                        <h4>方式 1: JSON 配置</h4>
+                        <label for="mcpJsonConfig">请输入 MCP 服务器配置 JSON：</label>
+                        <textarea id="mcpJsonConfig" placeholder='示例：
+{
+  "mcpServers": {
+    "mcp-server-chart": {
+      "command": "npx",
+      "args": ["-y", "@antv/mcp-server-chart"]
+    }
+  }
+}'></textarea>
+                        <button onclick="addMcpFromJson()">从 JSON 添加</button>
+                    </div>
+
+                    <!-- 表单配置方式 -->
+                    <div class="config-method">
+                        <h4>方式 2: 表单配置</h4>
+                        <form id="mcpServerForm">
+                            <div class="form-group">
+                                <label for="mcpServerName">服务器名称：</label>
+                                <input type="text" id="mcpServerName" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcpCommand">命令：</label>
+                                <input type="text" id="mcpCommand" placeholder="npx" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcpArgs">参数 (每行一个)：</label>
+                                <textarea id="mcpArgs" placeholder="-y&#10;@antv/mcp-server-chart"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="mcpWorkDir">工作目录：</label>
+                                <input type="text" id="mcpWorkDir" placeholder="留空使用当前目录">
+                            </div>
+                            <button type="submit">添加 MCP 服务器</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript 文件引用 -->
+<!-- 引入 marked 库 -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<!-- 引入 DOMPurify 库 -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
+<script src="/js/tool-log-display.js"></script>
+<script src="/js/sse-manager.js"></script>
+<script src="/js/main.js"></script>
+<script src="/js/tool-config.js"></script>
+</body>
+</html>
