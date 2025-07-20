@@ -20,6 +20,7 @@ import java.util.stream.Stream;
  * 项目上下文分析器
  * 提供完整的项目分析功能，生成AI可理解的项目上下文
  */
+
 @Service
 public class ProjectContextAnalyzer {
 
@@ -38,7 +39,7 @@ public class ProjectContextAnalyzer {
      * @return 项目上下文信息
      */
     public ProjectContext analyzeProject(Path projectRoot) {
-        logger.info("Starting comprehensive project analysis for: {}", projectRoot);
+        logger.info("开始分析项目: {}", projectRoot);
 
         ProjectContext context = new ProjectContext(projectRoot);
 
@@ -46,30 +47,29 @@ public class ProjectContextAnalyzer {
             // 1. 检测项目类型
             ProjectType projectType = projectTypeDetector.detectProjectType(projectRoot);
             context.setProjectType(projectType);
-            logger.debug("Detected project type: {}", projectType);
+            logger.debug("项目类型: {}", projectType);
 
             // 2. 分析项目结构
             ProjectStructure structure = projectDiscoveryService.analyzeProjectStructure(projectRoot);
             context.setProjectStructure(structure);
-            logger.debug("Analyzed project structure with {} directories",
-                    structure.getDirectories().size());
+            logger.debug("项目结构目录数量: {}", structure.getDirectories().size());
 
             // 3. 分析依赖关系
             List<ProjectContext.DependencyInfo> dependencies =
                     projectDiscoveryService.analyzeDependencies(projectRoot);
             context.setDependencies(dependencies);
-            logger.debug("Found {} dependencies", dependencies.size());
+            logger.debug("项目依赖数量: {}", dependencies.size());
 
             // 4. 查找配置文件
             List<ProjectContext.ConfigFile> configFiles =
                     projectDiscoveryService.findConfigurationFiles(projectRoot);
             context.setConfigFiles(configFiles);
-            logger.debug("Found {} configuration files", configFiles.size());
+            logger.debug("配置文件数量: {}", configFiles.size());
 
             // 5. 分析代码统计
             ProjectContext.CodeStatistics codeStats = analyzeCodeStatistics(projectRoot, projectType);
             context.setCodeStatistics(codeStats);
-            logger.debug("Code statistics: {} total lines", codeStats.getTotalLines());
+            logger.debug("代码统计总行数: {}", codeStats.getTotalLines());
 
             // 6. 收集项目元数据
             Map<String, Object> metadata = collectProjectMetadata(projectRoot, projectType);
@@ -77,14 +77,13 @@ public class ProjectContextAnalyzer {
 
             // 7. 生成上下文摘要
             String summary = context.generateContextSummary();
-            logger.debug("Generated context summary with {} characters", summary.length());
+            logger.debug("上下文摘要长度: {}", summary.length());
 
-            logger.info("Project analysis completed successfully for: {}", projectRoot);
+            logger.info("项目分析完成: {}", projectRoot);
             return context;
 
         } catch (Exception e) {
-            logger.error("Error during project analysis for: " + projectRoot, e);
-            // 返回部分分析结果
+            logger.error("项目分析错误: {}", projectRoot, e);
             return context;
         }
     }
@@ -93,14 +92,14 @@ public class ProjectContextAnalyzer {
      * 分析代码统计信息
      */
     private ProjectContext.CodeStatistics analyzeCodeStatistics(Path projectRoot, ProjectType projectType) {
-        logger.debug("Analyzing code statistics for: {}", projectRoot);
+        logger.info("开始分析代码统计信息: {}", projectRoot);
 
         ProjectContext.CodeStatistics stats = new ProjectContext.CodeStatistics();
 
         try {
             analyzeCodeInDirectory(projectRoot, stats, projectType, 0, 3);
         } catch (Exception e) {
-            logger.warn("Error analyzing code statistics", e);
+            logger.warn("分析代码统计信息错误：{}", e.getMessage());
         }
 
         return stats;

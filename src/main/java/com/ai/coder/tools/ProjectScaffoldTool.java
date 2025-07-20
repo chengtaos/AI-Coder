@@ -2,8 +2,10 @@ package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
 import com.ai.coder.model.ProjectType;
+import com.ai.coder.model.ScaffoldParams;
+import com.ai.coder.model.ScaffoldResult;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
@@ -22,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * 项目脚手架工具类，用于创建项目的基础结构和模板文件。
  */
 @Component
-public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldParams> {
+public class ProjectScaffoldTool extends BaseTool<ScaffoldParams> {
 
     private static final Logger logger = LoggerFactory.getLogger(ProjectScaffoldTool.class);
 
@@ -78,31 +80,31 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
             return baseValidation;
         }
 
-        if (params.projectName == null || params.projectName.trim().isEmpty()) {
+        if (params.getProjectName() == null || params.getProjectName().trim().isEmpty()) {
             return "Project name cannot be empty";
         }
 
-        if (params.projectType == null || params.projectType.trim().isEmpty()) {
+        if (params.getProjectType() == null || params.getProjectType().trim().isEmpty()) {
             return "Project type cannot be empty";
         }
 
         // 验证项目名称格式
-        if (!params.projectName.matches("[a-zA-Z0-9_-]+")) {
+        if (!params.getProjectName().matches("[a-zA-Z0-9_-]+")) {
             return "Project name can only contain letters, numbers, underscores, and hyphens";
         }
 
         // 验证项目类型
         try {
-            ProjectType.valueOf(params.projectType.toUpperCase());
+            ProjectType.valueOf(params.getProjectType().toUpperCase());
         } catch (IllegalArgumentException e) {
-            return "Invalid project type: " + params.projectType;
+            return "Invalid project type: " + params.getProjectType();
         }
 
         // 验证项目路径
-        if (params.projectPath != null) {
-            Path projectPath = Paths.get(params.projectPath);
+        if (params.getProjectPath() != null) {
+            Path projectPath = Paths.get(params.getProjectPath());
             if (!isWithinWorkspace(projectPath)) {
-                return "Project path must be within workspace: " + params.projectPath;
+                return "Project path must be within workspace: " + params.getProjectPath();
             }
         }
 
@@ -110,7 +112,14 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
     }
 
     /**
-     * Project scaffold tool method for Spring AI integration
+     * 创建项目脚手架
+     * @param projectName
+     * @param projectType
+     * @param projectPath
+     * @param includeGit
+     * @param includeReadme
+     * @param includeGitignore
+     * @return
      */
     @Tool(name = "scaffold_project", description = "Create a new project with standard structure and template files")
     public String scaffoldProject(String projectName, String projectType, String projectPath, Boolean includeGit, Boolean includeReadme, Boolean includeGitignore) {
@@ -148,7 +157,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
     public CompletableFuture<ToolResult> execute(ScaffoldParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.info("Creating project scaffold: {} ({})", params.projectName, params.projectType);
+                logger.info("创建项目脚手架: {} ({})", params.getProjectName(), params.getProjectType());
 
                 // 1. 确定项目路径
                 Path projectPath = determineProjectPath(params);
@@ -162,12 +171,12 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
                 Files.createDirectories(projectPath);
 
                 // 4. 获取项目类型
-                ProjectType projectType = ProjectType.valueOf(params.projectType.toUpperCase());
+                ProjectType projectType = ProjectType.valueOf(params.getProjectType().toUpperCase());
 
                 // 5. 创建项目结构
                 ScaffoldResult result = createProjectStructure(projectPath, projectType, params);
 
-                logger.info("Project scaffold created successfully: {}", projectPath);
+                logger.info("项目脚手架创建成功: {}", projectPath);
                 return ToolResult.success(result.getSummary(), result.getDetails());
 
             } catch (Exception e) {
@@ -181,10 +190,10 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
      * 确定项目路径
      */
     private Path determineProjectPath(ScaffoldParams params) {
-        if (params.projectPath != null && !params.projectPath.trim().isEmpty()) {
-            return Paths.get(params.projectPath, params.projectName);
+        if (params.getProjectPath() != null && !params.getProjectPath().trim().isEmpty()) {
+            return Paths.get(params.getProjectPath(), params.getProjectName());
         } else {
-            return Paths.get(rootDirectory, params.projectName);
+            return Paths.get(rootDirectory, params.getProjectName());
         }
     }
 
@@ -222,15 +231,15 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
         }
 
         // 创建通用文件
-        if (params.includeReadme == null || params.includeReadme) {
+        if (params.getIncludeReadme() == null || params.getIncludeReadme()) {
             createReadmeFile(projectPath, variables, result);
         }
 
-        if (params.includeGitignore == null || params.includeGitignore) {
+        if (params.getIncludeGitignore() == null || params.getIncludeGitignore()) {
             createGitignoreFile(projectPath, projectType, result);
         }
 
-        if (params.includeGit == null || params.includeGit) {
+        if (params.getIncludeGit() == null || params.getIncludeGit()) {
             initializeGitRepository(projectPath, result);
         }
 
@@ -243,20 +252,18 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
      */
     private Map<String, String> prepareTemplateVariables(ScaffoldParams params) {
         Map<String, String> variables = new HashMap<>();
-
-        // Default variables
-        variables.put("PROJECT_NAME", params.projectName);
-        variables.put("PROJECT_NAME_CAMEL", toCamelCase(params.projectName));
-        variables.put("PROJECT_NAME_PASCAL", toPascalCase(params.projectName));
+        variables.put("PROJECT_NAME", params.getProjectName());
+        variables.put("PROJECT_NAME_CAMEL", toCamelCase(params.getProjectName()));
+        variables.put("PROJECT_NAME_PASCAL", toPascalCase(params.getProjectName()));
         variables.put("CURRENT_YEAR", String.valueOf(java.time.Year.now().getValue()));
         variables.put("AUTHOR", "Developer");
         variables.put("EMAIL", "developer@example.com");
         variables.put("VERSION", "1.0.0");
-        variables.put("DESCRIPTION", "A new " + params.projectType + " project");
+        variables.put("DESCRIPTION", "A new " + params.getProjectType() + " project");
 
         // User-provided variables
-        if (params.templateVariables != null) {
-            params.templateVariables.forEach((key, value) ->
+        if (params.getTemplateVariables() != null) {
+            params.getTemplateVariables().forEach((key, value) ->
                     variables.put(key.toUpperCase(), String.valueOf(value)));
         }
 
@@ -267,7 +274,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
      * Create Java Maven project
      */
     private void createJavaMavenProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
-        // Create directory structure
+        logger.info("创建Java Maven项目");
         createDirectory(projectPath.resolve("src/main/java"), result);
         createDirectory(projectPath.resolve("src/main/resources"), result);
         createDirectory(projectPath.resolve("src/test/java"), result);
@@ -296,6 +303,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
      * 创建Spring Boot项目
      */
     private void createSpringBootProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
+        logger.info("创建Spring Boot项目");
         // 先创建基本的Maven结构
         createJavaMavenProject(projectPath, variables, result);
 
@@ -320,6 +328,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
     // 其他项目类型的创建方法将在后续实现
     private void createNodeJsProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
         // Node.js项目结构实现
+        logger.info("创建Node.js项目");
         createFile(projectPath.resolve("package.json"), generatePackageJson(variables), result);
         createFile(projectPath.resolve("index.js"), generateNodeJsMainFile(variables), result);
         createDirectory(projectPath.resolve("src"), result);
@@ -328,6 +337,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
 
     private void createReactProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
         // React项目结构实现
+        logger.info("创建React项目");
         createNodeJsProject(projectPath, variables, result);
         createDirectory(projectPath.resolve("public"), result);
         createDirectory(projectPath.resolve("src/components"), result);
@@ -337,6 +347,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
 
     private void createPythonProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
         // Python项目结构实现
+        logger.info("创建Python项目");
         createFile(projectPath.resolve("requirements.txt"), generateRequirementsTxt(variables), result);
         createFile(projectPath.resolve("main.py"), generatePythonMainFile(variables), result);
         createDirectory(projectPath.resolve("src"), result);
@@ -345,6 +356,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
 
     private void createHtmlStaticProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
         // 静态HTML项目结构实现
+        logger.info("创建静态HTML项目");
         createFile(projectPath.resolve("index.html"), generateStaticIndexHtml(variables), result);
         createDirectory(projectPath.resolve("css"), result);
         createDirectory(projectPath.resolve("js"), result);
@@ -355,6 +367,7 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
 
     private void createBasicProject(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
         // 基本项目结构
+        logger.info("创建基本项目");
         createDirectory(projectPath.resolve("src"), result);
         createDirectory(projectPath.resolve("docs"), result);
         createFile(projectPath.resolve("src/main.txt"), "Main file for " + variables.get("PROJECT_NAME"), result);
@@ -373,17 +386,20 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
     }
 
     private void createReadmeFile(Path projectPath, Map<String, String> variables, ScaffoldResult result) throws IOException {
+        logger.info("创建README.md文件");
         String readmeContent = generateReadmeContent(variables);
         createFile(projectPath.resolve("README.md"), readmeContent, result);
     }
 
     private void createGitignoreFile(Path projectPath, ProjectType projectType, ScaffoldResult result) throws IOException {
+        logger.info("创建.gitignore文件");
         String gitignoreContent = generateGitignoreContent(projectType);
         createFile(projectPath.resolve(".gitignore"), gitignoreContent, result);
     }
 
     private void initializeGitRepository(Path projectPath, ScaffoldResult result) {
         try {
+            logger.info("初始化Git仓库");
             // 简单的Git初始化 - 在实际项目中应该使用JGit库
             result.addCreatedItem("Git repository initialized");
         } catch (Exception e) {
@@ -509,121 +525,4 @@ public class ProjectScaffoldTool extends BaseTool<ProjectScaffoldTool.ScaffoldPa
         return "# Gitignore content";
     }
 
-    /**
-     * 脚手架参数类
-     */
-    public static class ScaffoldParams {
-        @JsonProperty("project_name")
-        private String projectName;
-
-        @JsonProperty("project_type")
-        private String projectType;
-
-        @JsonProperty("project_path")
-        private String projectPath;
-
-        @JsonProperty("template_variables")
-        private Map<String, Object> templateVariables;
-
-        @JsonProperty("include_git")
-        private Boolean includeGit = true;
-
-        @JsonProperty("include_readme")
-        private Boolean includeReadme = true;
-
-        @JsonProperty("include_gitignore")
-        private Boolean includeGitignore = true;
-
-        // Getters and Setters
-        public String getProjectName() {
-            return projectName;
-        }
-
-        public void setProjectName(String projectName) {
-            this.projectName = projectName;
-        }
-
-        public String getProjectType() {
-            return projectType;
-        }
-
-        public void setProjectType(String projectType) {
-            this.projectType = projectType;
-        }
-
-        public String getProjectPath() {
-            return projectPath;
-        }
-
-        public void setProjectPath(String projectPath) {
-            this.projectPath = projectPath;
-        }
-
-        public Map<String, Object> getTemplateVariables() {
-            return templateVariables;
-        }
-
-        public void setTemplateVariables(Map<String, Object> templateVariables) {
-            this.templateVariables = templateVariables;
-        }
-
-        public Boolean getIncludeGit() {
-            return includeGit;
-        }
-
-        public void setIncludeGit(Boolean includeGit) {
-            this.includeGit = includeGit;
-        }
-
-        public Boolean getIncludeReadme() {
-            return includeReadme;
-        }
-
-        public void setIncludeReadme(Boolean includeReadme) {
-            this.includeReadme = includeReadme;
-        }
-
-        public Boolean getIncludeGitignore() {
-            return includeGitignore;
-        }
-
-        public void setIncludeGitignore(Boolean includeGitignore) {
-            this.includeGitignore = includeGitignore;
-        }
-    }
-
-    /**
-     * 脚手架结果类
-     */
-    private static class ScaffoldResult {
-        private java.util.List<String> createdItems = new java.util.ArrayList<>();
-        private String summary;
-        private String details;
-
-        public void addCreatedItem(String item) {
-            createdItems.add(item);
-        }
-
-        public void generateSummary(Path projectPath, ProjectType projectType) {
-            this.summary = String.format("Created %s project '%s' with %d files/directories",
-                    projectType.getDisplayName(),
-                    projectPath.getFileName(),
-                    createdItems.size());
-
-            StringBuilder detailsBuilder = new StringBuilder();
-            detailsBuilder.append("Created project structure:\n");
-            for (String item : createdItems) {
-                detailsBuilder.append("✓ ").append(item).append("\n");
-            }
-            this.details = detailsBuilder.toString();
-        }
-
-        public String getSummary() {
-            return summary;
-        }
-
-        public String getDetails() {
-            return details;
-        }
-    }
 }

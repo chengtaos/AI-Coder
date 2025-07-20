@@ -63,8 +63,8 @@ public class ChatController {
                     String taskId = continuousConversationService.startTask(request.getMessage());
                     logger.info("🆔 任务ID: {}", taskId);
 
-                    // 记录任务开始
-                    executionLogger.logToolStatistics(); // 显示当前统计
+                    // 获取工具执行统计
+                    executionLogger.logToolStatistics();
 
                     // 异步执行连续对话
                     CompletableFuture.runAsync(() -> {

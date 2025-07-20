@@ -1,5 +1,7 @@
 package com.ai.coder.tools;
 
+import com.ai.coder.model.ToolConfirmationDetails;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.schema.SchemaValidator;
 import lombok.Data;

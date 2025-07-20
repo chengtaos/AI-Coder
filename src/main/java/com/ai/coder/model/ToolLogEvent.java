@@ -1,14 +1,17 @@
-package com.ai.coder.service;
+package com.ai.coder.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
 
 /**
  * 工具日志事件类
  * 继承自LogEvent，添加工具相关的字段
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@Data
 public class ToolLogEvent extends LogEvent {
 
+    // Getters and Setters
     private String toolName;
     private String filePath;
     private String icon;
@@ -28,55 +31,6 @@ public class ToolLogEvent extends LogEvent {
         this.filePath = filePath;
         this.icon = icon;
         this.status = status;
-    }
-
-    // Getters and Setters
-    public String getToolName() {
-        return toolName;
-    }
-
-    public void setToolName(String toolName) {
-        this.toolName = toolName;
-    }
-
-    public String getFilePath() {
-        return filePath;
-    }
-
-    public void setFilePath(String filePath) {
-        this.filePath = filePath;
-    }
-
-    public String getIcon() {
-        return icon;
-    }
-
-    public void setIcon(String icon) {
-        this.icon = icon;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public Long getExecutionTime() {
-        return executionTime;
-    }
-
-    public void setExecutionTime(Long executionTime) {
-        this.executionTime = executionTime;
-    }
-
-    public String getSummary() {
-        return summary;
-    }
-
-    public void setSummary(String summary) {
-        this.summary = summary;
     }
 
     @Override

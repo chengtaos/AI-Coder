@@ -2,6 +2,7 @@ package com.ai.coder.service;
 
 import com.ai.coder.model.McpServerConfig;
 import com.ai.coder.model.McpServerInfo;
+import com.ai.coder.model.McpServerProcess;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -263,37 +264,5 @@ public class McpServerConfigManager {
         }
     }
 
-    /**
-     * MCP服务器进程信息
-     */
-    public static class McpServerProcess {
-        private final String name;
-        private final Process process;
-        private final McpServerConfig config;
-        private final LocalDateTime startTime;
 
-        public McpServerProcess(String name, Process process, McpServerConfig config) {
-            this.name = name;
-            this.process = process;
-            this.config = config;
-            this.startTime = LocalDateTime.now();
-        }
-
-        // Getters
-        public String getName() {
-            return name;
-        }
-
-        public Process getProcess() {
-            return process;
-        }
-
-        public McpServerConfig getConfig() {
-            return config;
-        }
-
-        public LocalDateTime getStartTime() {
-            return startTime;
-        }
-    }
 }

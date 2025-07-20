@@ -1,7 +1,10 @@
 package com.ai.coder.service;
 
 import com.ai.coder.config.TaskContextHolder;
+import com.ai.coder.model.ConversationResult;
+import com.ai.coder.model.NextSpeakerResponse;
 import com.ai.coder.model.TaskStatus;
+import com.ai.coder.model.TurnResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -13,10 +16,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -165,18 +165,17 @@ public class ContinuousConversationService {
         return false;
     }
 
-    // 修改executeContinuousConversation方法
-    public ConversationResult executeContinuousConversation(String taskId, String initialMessage, List<Message> conversationHistory) {
+    public void executeContinuousConversation(String taskId, String initialMessage, List<Message> conversationHistory) {
         TaskStatus taskStatus = taskStatusMap.get(taskId);
         if (taskStatus == null) {
-            throw new IllegalArgumentException("Task not found: " + taskId);
+            throw new IllegalArgumentException("任务不存在: " + taskId);
         }
 
         // 设置任务上下文，供AOP切面使用
         TaskContextHolder.setCurrentTaskId(taskId);
 
         long conversationStartTime = System.currentTimeMillis();
-        logger.info("Starting continuous conversation with message: {}", initialMessage);
+        logger.info("开始连续对话，输入为: {}", initialMessage);
 
         // 更新任务状态
         taskStatus.setCurrentAction("开始处理对话...");
@@ -198,7 +197,7 @@ public class ContinuousConversationService {
         try {
             while (shouldContinue && turnCount < MAX_TURNS) {
                 turnCount++;
-                logger.debug("Executing conversation turn: {}", turnCount);
+                logger.info("执行对话轮次: {}", turnCount);
 
                 // 更新任务状态
                 taskStatus.setCurrentTurn(turnCount);
@@ -207,8 +206,8 @@ public class ContinuousConversationService {
                 // 检查总超时
                 long elapsedTime = System.currentTimeMillis() - conversationStartTime;
                 if (elapsedTime > TOTAL_TIMEOUT_MS) {
-                    logger.warn("Conversation timed out after {}ms", elapsedTime);
-                    stopReason = "Total conversation timeout exceeded";
+                    logger.warn("经过 {}ms 对话超时", elapsedTime);
+                    stopReason = "对话总时间超时";
                     break;
                 }
 
@@ -217,8 +216,8 @@ public class ContinuousConversationService {
                     TurnResult turnResult = executeSingleTurn(workingHistory, turnCount);
 
                     if (!turnResult.isSuccess()) {
-                        logger.error("Turn {} failed: {}", turnCount, turnResult.getErrorMessage());
-                        stopReason = "Turn execution failed: " + turnResult.getErrorMessage();
+                        logger.error("第 {} 轮执行失败: {}", turnCount, turnResult.getErrorMessage());
+                        stopReason = "第"+turnCount+"轮对话执行失败: " + turnResult.getErrorMessage();
                         break;
                     }
 
@@ -229,7 +228,7 @@ public class ContinuousConversationService {
                         workingHistory.add(assistantMessage);
 
                         // 累积响应
-                        if (fullResponse.length() > 0) {
+                        if (!fullResponse.isEmpty()) {
                             fullResponse.append("\n\n");
                         }
                         fullResponse.append(responseText);
@@ -250,7 +249,7 @@ public class ContinuousConversationService {
                         String continuePrompt = getContinuePrompt(turnCount);
                         UserMessage continueMessage = new UserMessage(continuePrompt);
                         workingHistory.add(continueMessage);
-                        logger.debug("Added continue prompt for turn {}: {}", turnCount + 1, continuePrompt);
+                        logger.info("为第 {} 轮添加连续提示词: {}", turnCount + 1, continuePrompt);
                         taskStatus.setCurrentAction(String.format("准备第 %d 轮对话...", turnCount + 1));
                     } else {
                         taskStatus.setCurrentAction("对话即将结束...");
@@ -262,7 +261,7 @@ public class ContinuousConversationService {
 
                     // 添加错误信息到响应中
                     String errorMessage = String.format("❌ Error in turn %d: %s", turnCount, e.getMessage());
-                    if (fullResponse.length() > 0) {
+                    if (!fullResponse.isEmpty()) {
                         fullResponse.append("\n\n");
                     }
                     fullResponse.append(errorMessage);
@@ -277,7 +276,7 @@ public class ContinuousConversationService {
             }
 
             long totalDuration = System.currentTimeMillis() - conversationStartTime;
-            logger.info("Continuous conversation completed after {} turns in {}ms. Stop reason: {}",
+            logger.info("连续对话经过 {} 轮 结束，耗时 {}ms. 结束原因: {}",
                     turnCount, totalDuration, stopReason);
 
             // 创建结果对象
@@ -307,8 +306,6 @@ public class ContinuousConversationService {
             // 推送任务完成事件
             logStreamService.pushTaskComplete(taskId);
 
-            return result;
-
         } catch (Exception e) {
             // 处理整个对话过程中的异常
             logger.error("Fatal error in continuous conversation: {}", e.getMessage(), e);
@@ -328,7 +325,7 @@ public class ContinuousConversationService {
     private TurnResult executeSingleTurn(List<Message> conversationHistory, int turnNumber) {
         long turnStartTime = System.currentTimeMillis();
         try {
-            logger.debug("Executing turn {} with {} messages in history", turnNumber, conversationHistory.size());
+            logger.info("执行第 {} 轮对话，历史消息数量: {}", turnNumber, conversationHistory.size());
 
             // 调用AI
             ChatResponse response = chatClient.prompt()
@@ -337,9 +334,11 @@ public class ContinuousConversationService {
                     .chatResponse();
 
             // 处理响应
-            Generation generation = response.getResult();
-            AssistantMessage assistantMessage = generation.getOutput();
-            String responseText = assistantMessage.getText();
+            String responseText = Optional.ofNullable(response)
+                    .map(ChatResponse::getResult)
+                    .map(Generation::getOutput)
+                    .map(AssistantMessage::getText)
+                    .orElse(null);
 
             long turnDuration = System.currentTimeMillis() - turnStartTime;
             logger.debug("Turn {} completed in {}ms, response length: {} characters",
@@ -355,7 +354,7 @@ public class ContinuousConversationService {
     }
 
     /**
-     * 判断是否应该继续对话 - 优化版本
+     * 判断是否应该继续对话，添加LLM智能判断
      */
     private boolean shouldContinueConversation(List<Message> conversationHistory, int turnCount, String lastResponse) {
         long startTime = System.currentTimeMillis();
@@ -390,7 +389,7 @@ public class ContinuousConversationService {
 
         // 只有在不确定的情况下才使用智能判断服务（包含LLM调用）
         try {
-            NextSpeakerService.NextSpeakerResponse nextSpeaker =
+            NextSpeakerResponse nextSpeaker =
                     nextSpeakerService.checkNextSpeaker(conversationHistory);
 
             long duration = System.currentTimeMillis() - startTime;
@@ -462,83 +461,4 @@ public class ContinuousConversationService {
         return CONTINUE_PROMPTS[index];
     }
 
-    /**
-     * 单轮对话结果
-     */
-    public static class TurnResult {
-        private final boolean success;
-        private final String response;
-        private final String errorMessage;
-
-        public TurnResult(boolean success, String response, String errorMessage) {
-            this.success = success;
-            this.response = response;
-            this.errorMessage = errorMessage;
-        }
-
-        public boolean isSuccess() {
-            return success;
-        }
-
-        public String getResponse() {
-            return response;
-        }
-
-        public String getErrorMessage() {
-            return errorMessage;
-        }
-    }
-
-    /**
-     * 连续对话结果
-     */
-    public static class ConversationResult {
-        private final String fullResponse;
-        private final List<String> turnResponses;
-        private final List<Message> finalHistory;
-        private final int totalTurns;
-        private final boolean reachedMaxTurns;
-        private final String stopReason;
-        private final long totalDurationMs;
-
-        public ConversationResult(String fullResponse, List<String> turnResponses,
-                                  List<Message> finalHistory, int totalTurns, boolean reachedMaxTurns,
-                                  String stopReason, long totalDurationMs) {
-            this.fullResponse = fullResponse;
-            this.turnResponses = turnResponses;
-            this.finalHistory = finalHistory;
-            this.totalTurns = totalTurns;
-            this.reachedMaxTurns = reachedMaxTurns;
-            this.stopReason = stopReason;
-            this.totalDurationMs = totalDurationMs;
-        }
-
-        public String getFullResponse() {
-            return fullResponse;
-        }
-
-        public List<String> getTurnResponses() {
-            return turnResponses;
-        }
-
-        public List<Message> getFinalHistory() {
-            return finalHistory;
-        }
-
-        public int getTotalTurns() {
-            return totalTurns;
-        }
-
-        public boolean isReachedMaxTurns() {
-            return reachedMaxTurns;
-        }
-
-        public String getStopReason() {
-            return stopReason;
-        }
-
-        public long getTotalDurationMs() {
-            return totalDurationMs;
-        }
-    }
 }

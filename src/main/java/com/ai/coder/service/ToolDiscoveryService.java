@@ -13,6 +13,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 工具发现服务
@@ -238,5 +239,10 @@ public class ToolDiscoveryService {
         } else {
             return "object";
         }
+    }
+
+    public Map<String, Object> toolTest(String toolName, Map<String, Object> parameters) {
+        //TODO 实现具体的工具测试逻辑
+        return Map.of("message", "工具 " + toolName + " 测试成功", "parameters", parameters);
     }
 }

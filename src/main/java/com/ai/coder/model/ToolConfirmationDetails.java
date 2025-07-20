@@ -1,4 +1,4 @@
-package com.ai.coder.tools;
+package com.ai.coder.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;

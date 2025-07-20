@@ -2,6 +2,8 @@ package com.ai.coder.schema;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -14,9 +16,12 @@ import java.util.Map;
  * 包括对象、字符串、数字、整数、布尔值和数组类型。
  * 使用 Jackson 注解确保在序列化时忽略值为 null 的字段。
  */
+@Setter
+@Getter
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class JsonSchema {
 
+    // Getters and Setters
     private String type;
     private String description;
     private String pattern;
@@ -122,76 +127,4 @@ public class JsonSchema {
         return this;
     }
 
-    // Getters and Setters
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getPattern() {
-        return pattern;
-    }
-
-    public void setPattern(String pattern) {
-        this.pattern = pattern;
-    }
-
-    public Number getMinimum() {
-        return minimum;
-    }
-
-    public void setMinimum(Number minimum) {
-        this.minimum = minimum;
-    }
-
-    public Number getMaximum() {
-        return maximum;
-    }
-
-    public void setMaximum(Number maximum) {
-        this.maximum = maximum;
-    }
-
-    public List<Object> getEnumValues() {
-        return enumValues;
-    }
-
-    public void setEnumValues(List<Object> enumValues) {
-        this.enumValues = enumValues;
-    }
-
-    public Map<String, JsonSchema> getProperties() {
-        return properties;
-    }
-
-    public void setProperties(Map<String, JsonSchema> properties) {
-        this.properties = properties;
-    }
-
-    public List<String> getRequiredFields() {
-        return requiredFields;
-    }
-
-    public void setRequiredFields(List<String> requiredFields) {
-        this.requiredFields = requiredFields;
-    }
-
-    public JsonSchema getItems() {
-        return items;
-    }
-
-    public void setItems(JsonSchema items) {
-        this.items = items;
-    }
 }

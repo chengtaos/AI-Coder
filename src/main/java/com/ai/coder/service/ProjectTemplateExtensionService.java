@@ -10,7 +10,7 @@ import java.util.Map;
  * 生成README、gitignore等通用文件模板
  */
 @Service
-public class ProjectTemplateExtensions {
+public class ProjectTemplateExtensionService {
 
     /**
      * 生成README.md内容

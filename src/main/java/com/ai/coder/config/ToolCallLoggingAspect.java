@@ -42,7 +42,7 @@ public class ToolCallLoggingAspect {
         String parametersInfo = formatMethodParameters(args);
         String fileInfo = extractFileInfoFromMethodArgs(methodName, args);
 
-        logger.debug("🚀 [Spring AI @Tool] 执行工具: {}.{} | 参数: {} | 文件/目录: {}",
+        logger.info("🚀 [Spring AI @Tool] 执行工具: {}.{} | 参数: {} | 文件/目录: {}",
                 className, methodName, parametersInfo, fileInfo);
 
         // 获取当前任务ID (从线程本地变量或其他方式)
@@ -59,7 +59,7 @@ public class ToolCallLoggingAspect {
             Object result = joinPoint.proceed();
             long executionTime = System.currentTimeMillis() - startTime;
 
-            logger.debug("✅ [Spring AI @Tool] 工具执行成功: {}.{} | 耗时: {}ms | 文件/目录: {} | 参数: {}",
+            logger.info("✅ [Spring AI @Tool] 工具执行成功: {}.{} | 耗时: {}ms | 文件/目录: {} | 参数: {}",
                     className, methodName, executionTime, fileInfo, parametersInfo);
 
             // 推送工具执行成功事件

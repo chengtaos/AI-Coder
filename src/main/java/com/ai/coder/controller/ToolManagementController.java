@@ -152,4 +152,18 @@ public class ToolManagementController {
             return ResponseEntity.internalServerError().build();
         }
     }
+
+    @PostMapping("/{toolName}/test")
+    public ResponseEntity<Map<String, Object>> testTool(@PathVariable String toolName, @RequestBody Map<String, Object> parameters) {
+        try {
+            // 调用工具测试逻辑
+            Map<String, Object> testResult = toolDiscoveryService.toolTest(toolName, parameters);
+            return ResponseEntity.ok(testResult);
+        } catch (Exception e) {
+            logger.error("测试{}工具时发生错误:{}", toolName, e.getMessage());
+            return ResponseEntity.internalServerError().build();
+        }
+    }
+
+
 }

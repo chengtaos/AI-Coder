@@ -71,14 +71,14 @@ app:
 logging:
   level:
     com.example.demo: DEBUG
-    com.example.demo.tools: INFO
-    com.example.demo.controller: INFO
-    com.example.demo.service: INFO
+    com.example.demo.tools: DEBUG
+    com.example.demo.controller: DEBUG
+    com.example.demo.service: DEBUG
     com.example.demo.config: DEBUG
     # 禁用 Spring AI 默认工具调用日志，使用我们的自定义日志
     org.springframework.ai.model.tool.DefaultToolCallingManager: WARN
     org.springframework.ai.tool.method.MethodToolCallback: WARN
-    org.springframework.ai: INFO
+    org.springframework.ai: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"

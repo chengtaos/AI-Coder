@@ -36,23 +36,23 @@ public class ProjectTypeDetector {
         }
 
         try {
-            logger.debug("Detecting project type for: {}", projectRoot);
+            logger.debug("开始检测项目类型: {}", projectRoot);
 
             // 按优先级检测项目类型
             ProjectType detectedType = detectByKeyFiles(projectRoot);
             if (detectedType != ProjectType.UNKNOWN) {
-                logger.info("Detected project type: {} for {}", detectedType, projectRoot);
+                logger.info("项目 {} 类型为: {}", projectRoot, detectedType);
                 return detectedType;
             }
 
             // 如果关键文件检测失败，尝试基于目录结构检测
             detectedType = detectByDirectoryStructure(projectRoot);
             if (detectedType != ProjectType.UNKNOWN) {
-                logger.info("Detected project type by structure: {} for {}", detectedType, projectRoot);
+                logger.info("项目 {} 类型为: {}", projectRoot, detectedType);
                 return detectedType;
             }
 
-            logger.info("Could not determine project type for: {}", projectRoot);
+            logger.info("项目 {} 类型未识别", projectRoot);
             return ProjectType.UNKNOWN;
 
         } catch (Exception e) {

@@ -1,15 +1,15 @@
 package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
+import com.ai.coder.model.EditFileParams;
+import com.ai.coder.model.FileDiff;
+import com.ai.coder.model.ToolConfirmationDetails;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.service.ToolExecutionLogger;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.github.difflib.DiffUtils;
 import com.github.difflib.UnifiedDiffUtils;
 import com.github.difflib.patch.Patch;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -29,7 +29,7 @@ import java.util.concurrent.CompletableFuture;
  * 编辑文件工具类，用于编辑文件中的内容。
  */
 @Component
-public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
+public class EditFileTool extends BaseTool<EditFileParams> {
 
     private final String rootDirectory;
     private final AppProperties appProperties;
@@ -90,33 +90,33 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         }
 
         // 验证路径
-        if (params.filePath == null || params.filePath.trim().isEmpty()) {
+        if (params.getFilePath() == null || params.getFilePath().trim().isEmpty()) {
             return "File path cannot be empty";
         }
 
-        if (params.oldStr == null) {
+        if (params.getOldStr() == null) {
             return "Old string cannot be null";
         }
 
-        if (params.newStr == null) {
+        if (params.getNewStr() == null) {
             return "New string cannot be null";
         }
 
-        Path filePath = Paths.get(params.filePath);
+        Path filePath = Paths.get(params.getFilePath());
 
         // Validate if it's an absolute path
         if (!filePath.isAbsolute()) {
-            return "File path must be absolute: " + params.filePath;
+            return "File path must be absolute: " + params.getFilePath();
         }
 
         // 验证是否在工作目录内
         if (!isWithinWorkspace(filePath)) {
-            return "File path must be within the workspace directory (" + rootDirectory + "): " + params.filePath;
+            return "File path must be within the workspace directory (" + rootDirectory + "): " + params.getFilePath();
         }
 
         // 验证行号
-        if (params.startLine != null && params.endLine != null) {
-            if (params.endLine < params.startLine) {
+        if (params.getStartLine() != null && params.getEndLine() != null) {
+            if (params.getEndLine() < params.getStartLine()) {
                 return "End line must be >= start line";
             }
         }
@@ -124,9 +124,13 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         return null;
     }
 
+    /**
+     * 确认执行编辑文件工具
+     * @param params
+     * @return
+     */
     @Override
     public CompletableFuture<ToolConfirmationDetails> shouldConfirmExecute(EditFileParams params) {
-        // Decide whether confirmation is needed based on configuration
         if (appProperties.getSecurity().getApprovalMode() == AppProperties.ApprovalMode.AUTO_EDIT ||
                 appProperties.getSecurity().getApprovalMode() == AppProperties.ApprovalMode.YOLO) {
             return CompletableFuture.completedFuture(null);
@@ -134,7 +138,7 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
 
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path filePath = Paths.get(params.filePath);
+                Path filePath = Paths.get(params.getFilePath());
 
                 if (!Files.exists(filePath)) {
                     return null; // 文件不存在，无法预览差异
@@ -144,7 +148,7 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
                 String newContent = performEdit(currentContent, params);
 
                 if (newContent == null) {
-                    return null; // Edit failed, cannot preview differences
+                    return null;
                 }
 
                 // 生成差异显示
@@ -154,7 +158,7 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
                 return ToolConfirmationDetails.edit(title, filePath.getFileName().toString(), diff);
 
             } catch (IOException e) {
-                logger.warn("Could not read file for edit preview: " + params.filePath, e);
+                logger.warn("错误编辑文件 {},{}", params.getFilePath(), e.getMessage());
                 return null;
             }
         });
@@ -224,16 +228,17 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
     public CompletableFuture<ToolResult> execute(EditFileParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path filePath = Paths.get(params.filePath);
+                logger.info("开始编辑文件.............");
+                Path filePath = Paths.get(params.getFilePath());
 
                 // Check if file exists
                 if (!Files.exists(filePath)) {
-                    return ToolResult.error("File not found: " + params.filePath);
+                    return ToolResult.error("File not found: " + params.getFilePath());
                 }
 
                 // Check if it's a file
                 if (!Files.isRegularFile(filePath)) {
-                    return ToolResult.error("Path is not a regular file: " + params.filePath);
+                    return ToolResult.error("Path is not a regular file: " + params.getFilePath());
                 }
 
                 // 读取原始内容
@@ -242,7 +247,7 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
                 // 执行编辑
                 String newContent = performEdit(originalContent, params);
                 if (newContent == null) {
-                    return ToolResult.error("Could not find the specified text to replace in file: " + params.filePath);
+                    return ToolResult.error("Could not find the specified text to replace in file: " + params.getFilePath());
                 }
 
                 // 创建备份
@@ -256,23 +261,22 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
                 // Generate differences and results
                 String diff = generateDiff(filePath.getFileName().toString(), originalContent, newContent);
                 String relativePath = getRelativePath(filePath);
-                String successMessage = String.format("Successfully edited file: %s", params.filePath);
+                String successMessage = String.format("Successfully edited file: %s", params.getFilePath());
 
                 return ToolResult.success(successMessage, new FileDiff(diff, filePath.getFileName().toString()));
 
             } catch (IOException e) {
-                logger.error("Error editing file: " + params.filePath, e);
+                logger.error("Error editing file: " + params.getFilePath(), e);
                 return ToolResult.error("Error editing file: " + e.getMessage());
             } catch (Exception e) {
-                logger.error("Unexpected error editing file: " + params.filePath, e);
+                logger.error("Unexpected error editing file: " + params.getFilePath(), e);
                 return ToolResult.error("Unexpected error: " + e.getMessage());
             }
         });
     }
 
     private String performEdit(String content, EditFileParams params) {
-        // If line numbers are specified, use line numbers to assist in finding
-        if (params.startLine != null && params.endLine != null) {
+        if (params.getStartLine() != null && params.getEndLine() != null) {
             return performEditWithLineNumbers(content, params);
         } else {
             return performSimpleEdit(content, params);
@@ -280,39 +284,40 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
     }
 
     private String performSimpleEdit(String content, EditFileParams params) {
-        // Simple string replacement
-        if (!content.contains(params.oldStr)) {
+        logger.info("开始简单编辑文件");
+        if (!content.contains(params.getOldStr())) {
             return null; // Cannot find string to replace
         }
 
         // Only replace the first match to avoid unexpected multiple replacements
-        int index = content.indexOf(params.oldStr);
+        int index = content.indexOf(params.getOldStr());
         if (index == -1) {
             return null;
         }
 
-        return content.substring(0, index) + params.newStr + content.substring(index + params.oldStr.length());
+        return content.substring(0, index) + params.getNewStr() + content.substring(index + params.getOldStr().length());
     }
 
     private String performEditWithLineNumbers(String content, EditFileParams params) {
+        logger.info("开始行号范围编辑文件......................");
         String[] lines = content.split("\n", -1); // -1 preserve trailing empty lines
 
         // Validate line number range
-        if (params.startLine > lines.length || params.endLine > lines.length) {
+        if (params.getStartLine() > lines.length || params.getEndLine() > lines.length) {
             return null; // Line number out of range
         }
 
         // Extract content from specified line range
         StringBuilder targetContent = new StringBuilder();
-        for (int i = params.startLine - 1; i < params.endLine; i++) {
-            if (i > params.startLine - 1) {
+        for (int i = params.getStartLine() - 1; i < params.getEndLine(); i++) {
+            if (i > params.getStartLine() - 1) {
                 targetContent.append("\n");
             }
             targetContent.append(lines[i]);
         }
 
         // 检查是否匹配
-        if (!targetContent.toString().equals(params.oldStr)) {
+        if (!targetContent.toString().equals(params.getOldStr())) {
             return null; // 指定行范围的内容与old_str不匹配
         }
 
@@ -320,17 +325,17 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         StringBuilder result = new StringBuilder();
 
         // 添加前面的行
-        for (int i = 0; i < params.startLine - 1; i++) {
+        for (int i = 0; i < params.getStartLine() - 1; i++) {
             if (i > 0) result.append("\n");
             result.append(lines[i]);
         }
 
         // 添加新内容
-        if (params.startLine > 1) result.append("\n");
-        result.append(params.newStr);
+        if (params.getStartLine() > 1) result.append("\n");
+        result.append(params.getNewStr());
 
         // 添加后面的行
-        for (int i = params.endLine; i < lines.length; i++) {
+        for (int i = params.getEndLine(); i < lines.length; i++) {
             result.append("\n");
             result.append(lines[i]);
         }
@@ -338,10 +343,24 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         return result.toString();
     }
 
-    private String generateDiff(String fileName, String oldContent, String newContent) {
+    /**
+     * 生成差异
+     * @param fileName
+     * @param oldContent
+     * @param newContent
+     * @return
+     */
+    public String generateDiff(String fileName, String oldContent, String newContent) {
+        logger.info("开始生成差异信息.............");
+        // 空值检查
+        if (fileName == null || oldContent == null || newContent == null) {
+            logger.warn("Input parameters cannot be null");
+            return "Diff generation failed: Input parameters cannot be null";
+        }
         try {
-            List<String> oldLines = Arrays.asList(oldContent.split("\n"));
-            List<String> newLines = Arrays.asList(newContent.split("\n"));
+            // 使用 \\R 匹配所有类型的换行符
+            List<String> oldLines = Arrays.asList(oldContent.split("\\R"));
+            List<String> newLines = Arrays.asList(newContent.split("\\R"));
 
             Patch<String> patch = DiffUtils.diff(oldLines, newLines);
             List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(
@@ -349,7 +368,7 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
                     fileName + " (Edited)",
                     oldLines,
                     patch,
-                    3 // context lines
+                    3
             );
 
             return String.join("\n", unifiedDiff);
@@ -359,13 +378,19 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         }
     }
 
+    /**
+     * 创建备份文件
+     * @param filePath
+     * @param content
+     * @throws IOException
+     */
     private void createBackup(Path filePath, String content) throws IOException {
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String backupFileName = filePath.getFileName().toString() + ".backup." + timestamp;
         Path backupPath = filePath.getParent().resolve(backupFileName);
 
         Files.writeString(backupPath, content, StandardCharsets.UTF_8);
-        logger.info("Created backup: {}", backupPath);
+        logger.info("创建备份文件: {}", backupPath);
     }
 
     private boolean shouldCreateBackup() {
@@ -392,44 +417,5 @@ public class EditFileTool extends BaseTool<EditFileTool.EditFileParams> {
         }
     }
 
-    /**
-     * 编辑文件参数
-     */
-    @Data
-    public static class EditFileParams {
-        // Getters and Setters
-        @JsonProperty("file_path")
-        private String filePath;
 
-        @JsonProperty("old_str")
-        private String oldStr;
-
-        @JsonProperty("new_str")
-        private String newStr;
-
-        @JsonProperty("start_line")
-        private Integer startLine;
-
-        @JsonProperty("end_line")
-        private Integer endLine;
-
-        // 构造器
-        public EditFileParams() {
-        }
-
-        public EditFileParams(String filePath, String oldStr, String newStr) {
-            this.filePath = filePath;
-            this.oldStr = oldStr;
-            this.newStr = newStr;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("EditFileParams{path='%s', oldStrLength=%d, newStrLength=%d, lines=%s-%s}",
-                    filePath,
-                    oldStr != null ? oldStr.length() : 0,
-                    newStr != null ? newStr.length() : 0,
-                    startLine, endLine);
-        }
-    }
 }

@@ -1,11 +1,12 @@
 package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
+import com.ai.coder.model.AnalyzeProjectParams;
 import com.ai.coder.model.ProjectContext;
 import com.ai.coder.model.ProjectStructure;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.service.ProjectContextAnalyzer;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.annotation.Tool;
@@ -22,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
  * 分析现有项目的结构、类型、依赖等信息
  */
 @Component
-public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProjectParams> {
+public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectParams> {
 
     private static final Logger logger = LoggerFactory.getLogger(AnalyzeProjectTool.class);
 
@@ -136,25 +137,25 @@ public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProje
             return baseValidation;
         }
 
-        if (params.projectPath == null || params.projectPath.trim().isEmpty()) {
+        if (params.getProjectPath() == null || params.getProjectPath().trim().isEmpty()) {
             return "Project path cannot be empty";
         }
 
-        Path projectPath = Paths.get(params.projectPath);
+        Path projectPath = Paths.get(params.getProjectPath());
         if (!projectPath.isAbsolute()) {
-            return "Project path must be absolute: " + params.projectPath;
+            return "Project path must be absolute: " + params.getProjectPath();
         }
 
         if (!Files.exists(projectPath)) {
-            return "Project path does not exist: " + params.projectPath;
+            return "Project path does not exist: " + params.getProjectPath();
         }
 
         if (!Files.isDirectory(projectPath)) {
-            return "Project path must be a directory: " + params.projectPath;
+            return "Project path must be a directory: " + params.getProjectPath();
         }
 
         if (!isWithinWorkspace(projectPath)) {
-            return "Project path must be within the workspace directory: " + params.projectPath;
+            return "Project path must be within the workspace directory: " + params.getProjectPath();
         }
 
         return null;
@@ -197,11 +198,11 @@ public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProje
     public CompletableFuture<ToolResult> execute(AnalyzeProjectParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.info("Starting project analysis for: {}", params.projectPath);
+                logger.info("Starting project analysis for: {}", params.getProjectPath());
 
-                Path projectPath = Paths.get(params.projectPath);
-                AnalysisDepth depth = AnalysisDepth.fromString(params.analysisDepth);
-                OutputFormat format = OutputFormat.fromString(params.outputFormat);
+                Path projectPath = Paths.get(params.getProjectPath());
+                AnalysisDepth depth = AnalysisDepth.fromString(params.getAnalysisDepth());
+                OutputFormat format = OutputFormat.fromString(params.getOutputFormat());
 
                 // 执行项目分析
                 ProjectContext context = analyzeProject(projectPath, depth, params);
@@ -210,7 +211,7 @@ public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProje
                 String output = generateOutput(context, format, depth);
                 String summary = generateSummary(context);
 
-                logger.info("Project analysis completed for: {}", params.projectPath);
+                logger.info("Project analysis completed for: {}", params.getProjectPath());
                 return ToolResult.success(summary, output);
 
             } catch (Exception e) {
@@ -260,7 +261,7 @@ public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProje
         context.setConfigFiles(projectContextAnalyzer.projectDiscoveryService.findConfigurationFiles(projectPath));
 
         // 如果需要代码统计
-        if (params.includeCodeStats == null || params.includeCodeStats) {
+        if (params.getIncludeCodeStats() == null || params.getIncludeCodeStats()) {
             // 简化的代码统计，避免性能问题
             ProjectContext.CodeStatistics stats = new ProjectContext.CodeStatistics();
             // 这里可以添加基本的代码统计逻辑
@@ -467,59 +468,5 @@ public class AnalyzeProjectTool extends BaseTool<AnalyzeProjectTool.AnalyzeProje
         }
     }
 
-    /**
-     * 分析项目参数
-     */
-    public static class AnalyzeProjectParams {
-        @JsonProperty("project_path")
-        private String projectPath;
 
-        @JsonProperty("analysis_depth")
-        private String analysisDepth = "detailed";
-
-        @JsonProperty("include_code_stats")
-        private Boolean includeCodeStats;
-
-        @JsonProperty("output_format")
-        private String outputFormat = "detailed";
-
-        // Getters and Setters
-        public String getProjectPath() {
-            return projectPath;
-        }
-
-        public void setProjectPath(String projectPath) {
-            this.projectPath = projectPath;
-        }
-
-        public String getAnalysisDepth() {
-            return analysisDepth;
-        }
-
-        public void setAnalysisDepth(String analysisDepth) {
-            this.analysisDepth = analysisDepth;
-        }
-
-        public Boolean getIncludeCodeStats() {
-            return includeCodeStats;
-        }
-
-        public void setIncludeCodeStats(Boolean includeCodeStats) {
-            this.includeCodeStats = includeCodeStats;
-        }
-
-        public String getOutputFormat() {
-            return outputFormat;
-        }
-
-        public void setOutputFormat(String outputFormat) {
-            this.outputFormat = outputFormat;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("AnalyzeProjectParams{path='%s', depth='%s', format='%s'}",
-                    projectPath, analysisDepth, outputFormat);
-        }
-    }
 }

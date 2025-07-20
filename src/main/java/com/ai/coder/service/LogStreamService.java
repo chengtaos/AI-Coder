@@ -1,5 +1,7 @@
 package com.ai.coder.service;
 
+import com.ai.coder.model.LogEvent;
+import com.ai.coder.model.ToolLogEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -181,24 +183,16 @@ public class LogStreamService {
      * 获取工具图标
      */
     private String getToolIcon(String toolName) {
-        switch (toolName) {
-            case "readFile":
-                return "📖";
-            case "writeFile":
-                return "✏️";
-            case "editFile":
-                return "📝";
-            case "listDirectory":
-                return "📁";
-            case "analyzeProject":
-                return "🔍";
-            case "scaffoldProject":
-                return "🏗️";
-            case "smartEdit":
-                return "🧠";
-            default:
-                return "⚙️";
-        }
+        return switch (toolName) {
+            case "readFile" -> "📖";
+            case "writeFile" -> "✏️";
+            case "editFile" -> "📝";
+            case "listDirectory" -> "📁";
+            case "analyzeProject" -> "🔍";
+            case "scaffoldProject" -> "🏗️";
+            case "smartEdit" -> "🧠";
+            default -> "⚙️";
+        };
     }
 
     /**

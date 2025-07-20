@@ -45,7 +45,7 @@ public class AICoderApplication {
         AppProperties.Browser browserConfig = appProperties.getBrowser();
 
         if (!browserConfig.isAutoOpen()) {
-            logger.info("Browser auto-open is disabled");
+            logger.info("浏览器自动打开已禁用");
             return;
         }
 
@@ -53,8 +53,8 @@ public class AICoderApplication {
         String port = environment.getProperty("server.port", "8080");
         String actualUrl = browserConfig.getUrl().replace("${server.port:8080}", port);
 
-        logger.info("Application started successfully!");
-        logger.info("Preparing to open browser in {} seconds...", browserConfig.getDelaySeconds());
+        logger.info("应用启动完成!");
+        logger.info("准备 {} 秒后打开浏览器", browserConfig.getDelaySeconds());
 
         // 在新线程中延迟打开浏览器，避免阻塞主线程
         new Thread(() -> {

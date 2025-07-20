@@ -1,5 +1,6 @@
 package com.ai.coder.service;
 
+import com.ai.coder.model.NextSpeakerResponse;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -43,6 +44,8 @@ public class NextSpeakerService {
      * 判断下一步应该由谁发言
      */
     public NextSpeakerResponse checkNextSpeaker(List<Message> conversationHistory) {
+        logger.info("智能判断下一步发言者开始");
+
         try {
             // 确保有对话历史
             if (conversationHistory.isEmpty()) {
@@ -225,7 +228,7 @@ public class NextSpeakerService {
         try {
             long startTime = System.currentTimeMillis();
 
-            // 优化：只使用最近的对话历史，减少上下文长度
+            // 只使用最近的对话历史，减少上下文长度
             List<Message> recentHistory = getRecentHistory(conversationHistory, 6); // 最多6条消息
 
             // 创建用于判断的对话历史 - 简化版本
@@ -257,7 +260,7 @@ public class NextSpeakerService {
             BeanOutputConverter<NextSpeakerResponse> outputConverter =
                     new BeanOutputConverter<>(NextSpeakerResponse.class);
 
-            // 调用LLM - 这里可以考虑添加超时，但Spring AI目前不直接支持
+            // 调用LLM
             ChatResponse response = ChatClient.create(chatModel)
                     .prompt()
                     .messages(checkMessages)
@@ -267,7 +270,10 @@ public class NextSpeakerService {
             long duration = System.currentTimeMillis() - startTime;
             logger.debug("LLM check completed in {}ms", duration);
 
-            String responseText = response.getResult().getOutput().getText();
+            String responseText = null;
+            if (response != null) {
+                responseText = response.getResult().getOutput().getText();
+            }
             logger.debug("Next speaker check response: {}", responseText);
 
             // 解析响应
@@ -309,7 +315,7 @@ public class NextSpeakerService {
     }
 
     /**
-     * 检查响应内容是否表明需要继续 - 优化版本
+     * 检查响应内容是否表明需要继续
      */
     public boolean shouldContinueBasedOnContent(String response) {
         if (response == null || response.trim().isEmpty()) {
@@ -442,51 +448,5 @@ public class NextSpeakerService {
         return false;
     }
 
-    /**
-     * 下一步发言者响应
-     */
-    public static class NextSpeakerResponse {
-        @JsonProperty("next_speaker")
-        private String nextSpeaker;
 
-        @JsonProperty("reasoning")
-        private String reasoning;
-
-        public NextSpeakerResponse() {
-        }
-
-        public NextSpeakerResponse(String nextSpeaker, String reasoning) {
-            this.nextSpeaker = nextSpeaker;
-            this.reasoning = reasoning;
-        }
-
-        public String getNextSpeaker() {
-            return nextSpeaker;
-        }
-
-        public void setNextSpeaker(String nextSpeaker) {
-            this.nextSpeaker = nextSpeaker;
-        }
-
-        public String getReasoning() {
-            return reasoning;
-        }
-
-        public void setReasoning(String reasoning) {
-            this.reasoning = reasoning;
-        }
-
-        public boolean isModelNext() {
-            return "model".equals(nextSpeaker);
-        }
-
-        public boolean isUserNext() {
-            return "user".equals(nextSpeaker);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("NextSpeaker{speaker='%s', reasoning='%s'}", nextSpeaker, reasoning);
-        }
-    }
 }

@@ -2,9 +2,9 @@ package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
 import com.ai.coder.model.FileInfo;
+import com.ai.coder.model.ListDirectoryParams;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -26,7 +26,7 @@ import java.util.stream.Stream;
  * 列出指定目录的文件和子目录，支持递归列表
  */
 @Component
-public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryParams> {
+public class ListDirectoryTool extends BaseTool<ListDirectoryParams> {
 
     private final String rootDirectory;
     private final AppProperties appProperties;
@@ -81,24 +81,24 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
         }
 
         // 验证路径
-        if (params.path == null || params.path.trim().isEmpty()) {
+        if (params.getPath() == null || params.getPath().trim().isEmpty()) {
             return "Directory path cannot be empty";
         }
 
-        Path dirPath = Paths.get(params.path);
+        Path dirPath = Paths.get(params.getPath());
 
         // 验证是否为绝对路径
         if (!dirPath.isAbsolute()) {
-            return "Directory path must be absolute: " + params.path;
+            return "Directory path must be absolute: " + params.getPath();
         }
 
         // 验证是否在工作目录内
         if (!isWithinWorkspace(dirPath)) {
-            return "Directory path must be within the workspace directory (" + rootDirectory + "): " + params.path;
+            return "Directory path must be within the workspace directory (" + rootDirectory + "): " + params.getPath();
         }
 
         // 验证最大深度
-        if (params.maxDepth != null && (params.maxDepth < 1 || params.maxDepth > 10)) {
+        if (params.getMaxDepth() != null && (params.getMaxDepth() < 1 || params.getMaxDepth() > 10)) {
             return "Max depth must be between 1 and 10";
         }
 
@@ -109,16 +109,16 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
     public CompletableFuture<ToolResult> execute(ListDirectoryParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path dirPath = Paths.get(params.path);
+                Path dirPath = Paths.get(params.getPath());
 
                 // 检查目录是否存在
                 if (!Files.exists(dirPath)) {
-                    return ToolResult.error("Directory not found: " + params.path);
+                    return ToolResult.error("Directory not found: " + params.getPath());
                 }
 
                 // 检查是否为目录
                 if (!Files.isDirectory(dirPath)) {
-                    return ToolResult.error("Path is not a directory: " + params.path);
+                    return ToolResult.error("Path is not a directory: " + params.getPath());
                 }
 
                 // 列出文件和目录
@@ -133,10 +133,10 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
                 return ToolResult.success(content, displayMessage);
 
             } catch (IOException e) {
-                logger.error("Error listing directory: " + params.path, e);
+                logger.error("Error listing directory: " + params.getPath(), e);
                 return ToolResult.error("Error listing directory: " + e.getMessage());
             } catch (Exception e) {
-                logger.error("Unexpected error listing directory: " + params.path, e);
+                logger.error("Unexpected error listing directory: " + params.getPath(), e);
                 return ToolResult.error("Unexpected error: " + e.getMessage());
             }
         });
@@ -145,8 +145,8 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
     private List<FileInfo> listFiles(Path dirPath, ListDirectoryParams params) throws IOException {
         List<FileInfo> fileInfos = new ArrayList<>();
 
-        if (params.recursive != null && params.recursive) {
-            int maxDepth = params.maxDepth != null ? params.maxDepth : 3;
+        if (params.getRecursive() != null && params.getRecursive()) {
+            int maxDepth = params.getMaxDepth() != null ? params.getMaxDepth() : 3;
             listFilesRecursive(dirPath, fileInfos, 0, maxDepth, params);
         } else {
             listFilesInDirectory(dirPath, fileInfos, params);
@@ -160,14 +160,17 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
         return fileInfos;
     }
 
-    private void listFilesInDirectory(Path dirPath, List<FileInfo> fileInfos, ListDirectoryParams params) throws IOException {
+    private void listFilesInDirectory(Path dirPath,
+                                      List<FileInfo> fileInfos,
+                                      ListDirectoryParams params) throws IOException {
         try (Stream<Path> stream = Files.list(dirPath)) {
+            logger.info("开始列出目录: {} (非递归)", dirPath);
             stream.forEach(path -> {
                 try {
                     String fileName = path.getFileName().toString();
 
                     // 跳过隐藏文件（除非明确要求显示）
-                    if (!params.showHidden && fileName.startsWith(".")) {
+                    if (!params.getShowHidden() && fileName.startsWith(".")) {
                         return;
                     }
 
@@ -180,7 +183,12 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
         }
     }
 
-    private void listFilesRecursive(Path dirPath, List<FileInfo> fileInfos, int currentDepth, int maxDepth, ListDirectoryParams params) throws IOException {
+    private void listFilesRecursive(Path dirPath,
+                                    List<FileInfo> fileInfos,
+                                    int currentDepth,
+                                    int maxDepth,
+                                    ListDirectoryParams params) throws IOException {
+        logger.info("开始递归列出目录: {} (当前深度: {}, 最大深度: {})", dirPath, currentDepth, maxDepth);
         if (currentDepth >= maxDepth) {
             return;
         }
@@ -192,12 +200,12 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
                 String fileName = path.getFileName().toString();
 
                 // 跳过隐藏文件（除非明确要求显示）
-                if (!params.showHidden && fileName.startsWith(".")) {
+                if (!params.getShowHidden() && fileName.startsWith(".")) {
                     continue;
                 }
 
                 try {
-                    FileInfo fileInfo = createFileInfo(path, Paths.get(params.path));
+                    FileInfo fileInfo = createFileInfo(path, Paths.get(params.getPath()));
                     fileInfos.add(fileInfo);
 
                     // 如果是目录，递归列出
@@ -232,7 +240,7 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append(String.format("Directory listing for: %s\n", getRelativePath(Paths.get(params.path))));
+        sb.append(String.format("Directory listing for: %s\n", getRelativePath(Paths.get(params.getPath()))));
         sb.append(String.format("Total items: %d\n\n", fileInfos.size()));
 
         // 表头
@@ -294,33 +302,4 @@ public class ListDirectoryTool extends BaseTool<ListDirectoryTool.ListDirectoryP
     }
 
 
-
-    /**
-     * 列表目录参数
-     */
-    @Data
-    public static class ListDirectoryParams {
-        private String path;
-        private Boolean recursive;
-
-        @JsonProperty("max_depth")
-        private Integer maxDepth;
-
-        @JsonProperty("show_hidden")
-        private Boolean showHidden;
-
-        // 构造器
-        public ListDirectoryParams() {
-        }
-
-        public ListDirectoryParams(String path) {
-            this.path = path;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("ListDirectoryParams{path='%s', recursive=%s, maxDepth=%d}",
-                    path, recursive, maxDepth);
-        }
-    }
 }

@@ -1,9 +1,10 @@
 package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
+import com.ai.coder.model.ReadFileParams;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.service.ToolExecutionLogger;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ import java.util.concurrent.CompletableFuture;
  * 支持读取文本文件，可以分页读取大文件
  */
 @Component
-public class ReadFileTool extends BaseTool<ReadFileTool.ReadFileParams> {
+public class ReadFileTool extends BaseTool<ReadFileParams> {
 
     private final String rootDirectory;
     private final AppProperties appProperties;
@@ -77,32 +78,32 @@ public class ReadFileTool extends BaseTool<ReadFileTool.ReadFileParams> {
         }
 
         // 验证路径
-        if (params.absolutePath == null || params.absolutePath.trim().isEmpty()) {
+        if (params.getAbsolutePath() == null || params.getAbsolutePath().trim().isEmpty()) {
             return "File path cannot be empty";
         }
 
-        Path filePath = Paths.get(params.absolutePath);
+        Path filePath = Paths.get(params.getAbsolutePath());
 
         // 验证是否为绝对路径
         if (!filePath.isAbsolute()) {
-            return "File path must be absolute: " + params.absolutePath;
+            return "File path must be absolute: " + params.getAbsolutePath();
         }
 
         // 验证是否在工作目录内
         if (!isWithinWorkspace(filePath)) {
-            return "File path must be within the workspace directory (" + rootDirectory + "): " + params.absolutePath;
+            return "File path must be within the workspace directory (" + rootDirectory + "): " + params.getAbsolutePath();
         }
 
         // 验证分页参数
-        if (params.offset != null && params.limit == null) {
+        if (params.getOffset() != null && params.getLimit() == null) {
             return "When 'offset' is specified, 'limit' must also be specified";
         }
 
-        if (params.offset != null && params.offset < 0) {
+        if (params.getOffset() != null && params.getOffset() < 0) {
             return "Offset must be non-negative";
         }
 
-        if (params.limit != null && params.limit <= 0) {
+        if (params.getLimit() != null && params.getLimit() <= 0) {
             return "Limit must be positive";
         }
 
@@ -162,16 +163,17 @@ public class ReadFileTool extends BaseTool<ReadFileTool.ReadFileParams> {
     public CompletableFuture<ToolResult> execute(ReadFileParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                Path filePath = Paths.get(params.absolutePath);
+                logger.info("开始读取文件: {}", params.getAbsolutePath());
+                Path filePath = Paths.get(params.getAbsolutePath());
 
                 // 检查文件是否存在
                 if (!Files.exists(filePath)) {
-                    return ToolResult.error("File not found: " + params.absolutePath);
+                    return ToolResult.error("File not found: " + params.getAbsolutePath());
                 }
 
                 // 检查是否为文件
                 if (!Files.isRegularFile(filePath)) {
-                    return ToolResult.error("Path is not a regular file: " + params.absolutePath);
+                    return ToolResult.error("Path is not a regular file: " + params.getAbsolutePath());
                 }
 
                 // 检查文件大小
@@ -189,17 +191,17 @@ public class ReadFileTool extends BaseTool<ReadFileTool.ReadFileParams> {
                 }
 
                 // 读取文件
-                if (params.offset != null && params.limit != null) {
-                    return readFileWithPagination(filePath, params.offset, params.limit);
+                if (params.getOffset() != null && params.getLimit() != null) {
+                    return readFileWithPagination(filePath, params.getOffset(), params.getLimit());
                 } else {
                     return readFullFile(filePath);
                 }
 
             } catch (IOException e) {
-                logger.error("Error reading file: " + params.absolutePath, e);
+                logger.error("Error reading file: " + params.getAbsolutePath(), e);
                 return ToolResult.error("Error reading file: " + e.getMessage());
             } catch (Exception e) {
-                logger.error("Unexpected error reading file: " + params.absolutePath, e);
+                logger.error("Unexpected error reading file: " + params.getAbsolutePath(), e);
                 return ToolResult.error("Unexpected error: " + e.getMessage());
             }
         });
@@ -267,59 +269,5 @@ public class ReadFileTool extends BaseTool<ReadFileTool.ReadFileParams> {
         }
     }
 
-    /**
-     * 读取文件参数
-     */
-    public static class ReadFileParams {
-        @JsonProperty("absolute_path")
-        private String absolutePath;
 
-        private Integer offset;
-        private Integer limit;
-
-        // 构造器
-        public ReadFileParams() {
-        }
-
-        public ReadFileParams(String absolutePath) {
-            this.absolutePath = absolutePath;
-        }
-
-        public ReadFileParams(String absolutePath, Integer offset, Integer limit) {
-            this.absolutePath = absolutePath;
-            this.offset = offset;
-            this.limit = limit;
-        }
-
-        // Getters and Setters
-        public String getAbsolutePath() {
-            return absolutePath;
-        }
-
-        public void setAbsolutePath(String absolutePath) {
-            this.absolutePath = absolutePath;
-        }
-
-        public Integer getOffset() {
-            return offset;
-        }
-
-        public void setOffset(Integer offset) {
-            this.offset = offset;
-        }
-
-        public Integer getLimit() {
-            return limit;
-        }
-
-        public void setLimit(Integer limit) {
-            this.limit = limit;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("ReadFileParams{path='%s', offset=%d, limit=%d}",
-                    absolutePath, offset, limit);
-        }
-    }
 }

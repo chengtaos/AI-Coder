@@ -2,6 +2,7 @@ package com.ai.coder.controller;
 
 import com.ai.coder.dto.ConversationResultDTO;
 import com.ai.coder.dto.TaskStatusDTO;
+import com.ai.coder.model.ConversationResult;
 import com.ai.coder.model.TaskStatus;
 import com.ai.coder.service.ContinuousConversationService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -52,7 +53,7 @@ public class TaskStatusController {
     @GetMapping("/result/{taskId}")
     public Mono<ConversationResultDTO> getConversationResult(@PathVariable("taskId") String taskId) {
         return Mono.fromCallable(() -> {
-            ContinuousConversationService.ConversationResult result = conversationService.getConversationResult(taskId);
+            ConversationResult result = conversationService.getConversationResult(taskId);
             if (result == null) {
                 throw new RuntimeException("Conversation result not found: " + taskId);
             }

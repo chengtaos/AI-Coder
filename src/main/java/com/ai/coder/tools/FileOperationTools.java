@@ -47,7 +47,7 @@ public class FileOperationTools {
 
         long startTime = System.currentTimeMillis();
         try {
-            logger.debug("Starting readFile operation for: {}", absolutePath);
+            logger.info("开始读取文件: {}", absolutePath);
             // 验证路径
             String validationError = validatePath(absolutePath);
             if (validationError != null) {
@@ -112,7 +112,7 @@ public class FileOperationTools {
 
         long startTime = System.currentTimeMillis();
         try {
-            logger.debug("Starting writeFile operation for: {}", filePath);
+            logger.info("开始写入文件: {}", filePath);
             // 验证路径
             String validationError = validatePath(filePath);
             if (validationError != null) {
@@ -174,6 +174,7 @@ public class FileOperationTools {
             String newText) {
 
         try {
+            logger.info("开始编辑文件: {}", filePath);
             // 验证路径
             String validationError = validatePath(filePath);
             if (validationError != null) {
@@ -227,6 +228,7 @@ public class FileOperationTools {
             Boolean recursive) {
 
         try {
+            logger.info("开始列出文件目录: {}", directoryPath);
             // 验证路径
             String validationError = validatePath(directoryPath);
             if (validationError != null) {
@@ -264,7 +266,11 @@ public class FileOperationTools {
         }
     }
 
-    // 辅助方法
+    /**
+     * 验证路径是否有效
+     * @param path
+     * @return
+     */
     private String validatePath(String path) {
         if (path == null || path.trim().isEmpty()) {
             return "Path cannot be empty";
@@ -285,6 +291,11 @@ public class FileOperationTools {
         return null;
     }
 
+    /**
+     * 验证路径是否在工作目录内
+     * @param path
+     * @return
+     */
     private boolean isWithinWorkspace(Path path) {
         try {
             Path workspacePath = Paths.get(rootDirectory).toRealPath();
@@ -317,7 +328,14 @@ public class FileOperationTools {
         }
     }
 
+    /**
+     * 读取全部文件内容
+     * @param filePath
+     * @return
+     * @throws IOException
+     */
     private String readFullFile(Path filePath) throws IOException {
+        logger.info("开始读取完整文件内容..........");
         String content = Files.readString(filePath, StandardCharsets.UTF_8);
         String absolutePath = filePath.toAbsolutePath().toString();
         String relativePath = getRelativePath(filePath);
@@ -327,7 +345,16 @@ public class FileOperationTools {
                 absolutePath, relativePath, lineCount, content.getBytes(StandardCharsets.UTF_8).length, content);
     }
 
+    /**
+     * 分页读取文件内容
+     * @param filePath
+     * @param offset
+     * @param limit
+     * @return
+     * @throws IOException
+     */
     private String readFileWithPagination(Path filePath, int offset, int limit) throws IOException {
+        logger.info("开始分页读取文件内容..........");
         List<String> allLines = Files.readAllLines(filePath, StandardCharsets.UTF_8);
 
         if (offset >= allLines.size()) {
@@ -344,6 +371,14 @@ public class FileOperationTools {
                 absolutePath, relativePath, offset + 1, endIndex, allLines.size(), content);
     }
 
+    /**
+     * 简单列出目录内容
+     * @param path
+     * @param absolutePath
+     * @param relativePath
+     * @return
+     * @throws IOException
+     */
     private String listDirectorySimple(Path path, String absolutePath, String relativePath) throws IOException {
         StringBuilder result = new StringBuilder();
         result.append("📁 Full path: ").append(absolutePath).append("\n");
@@ -370,6 +405,14 @@ public class FileOperationTools {
         return result.toString();
     }
 
+    /**
+     * 递归列出目录内容
+     * @param path
+     * @param absolutePath
+     * @param relativePath
+     * @return
+     * @throws IOException
+     */
     private String listDirectoryRecursive(Path path, String absolutePath, String relativePath) throws IOException {
         StringBuilder result = new StringBuilder();
         result.append("📁 Full path: ").append(absolutePath).append("\n");

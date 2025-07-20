@@ -38,7 +38,7 @@ public class ProjectDiscoveryService {
      * @return 项目结构信息
      */
     public ProjectStructure analyzeProjectStructure(Path projectRoot) {
-        logger.debug("Analyzing project structure for: {}", projectRoot);
+        logger.debug("分析项目结构: {}", projectRoot);
 
         ProjectType projectType = projectTypeDetector.detectProjectType(projectRoot);
         ProjectStructure structure = new ProjectStructure(projectRoot, projectType);
@@ -47,12 +47,12 @@ public class ProjectDiscoveryService {
             analyzeDirectoryStructure(projectRoot, structure, 0, 3); // 最大深度3层
             structure.markImportantDirectories();
 
-            logger.info("Project structure analysis completed for: {}", projectRoot);
+            logger.info("分析项目结构完成: {}", projectRoot);
             return structure;
 
         } catch (IOException e) {
-            logger.error("Error analyzing project structure for: " + projectRoot, e);
-            return structure; // 返回部分分析结果
+            logger.error("分析项目结构失败: {},错误原因：{}",projectRoot, e.getMessage());
+            return structure;
         }
     }
 
@@ -135,7 +135,7 @@ public class ProjectDiscoveryService {
      * 分析项目依赖
      */
     public List<ProjectContext.DependencyInfo> analyzeDependencies(Path projectRoot) {
-        logger.debug("Analyzing dependencies for: {}", projectRoot);
+        logger.debug("分析项目依赖: {}", projectRoot);
 
         List<ProjectContext.DependencyInfo> dependencies = new ArrayList<>();
         ProjectType projectType = projectTypeDetector.detectProjectType(projectRoot);
@@ -160,13 +160,13 @@ public class ProjectDiscoveryService {
                     dependencies.addAll(analyzePythonDependencies(projectRoot));
                     break;
                 default:
-                    logger.info("Dependency analysis not supported for project type: {}", projectType);
+                    logger.info("未支持的项目类型: {}", projectType);
             }
         } catch (Exception e) {
-            logger.error("Error analyzing dependencies for: " + projectRoot, e);
+            logger.error("分析项目依赖失败: {},错误原因：{}", projectRoot, e.getMessage());
         }
 
-        logger.info("Found {} dependencies for project: {}", dependencies.size(), projectRoot);
+        logger.info("分析项目依赖完成: {},依赖数量：{}", projectRoot, dependencies.size());
         return dependencies;
     }
 

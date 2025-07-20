@@ -1,6 +1,9 @@
 package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
+import com.ai.coder.model.FileDiff;
+import com.ai.coder.model.ToolConfirmationDetails;
+import com.ai.coder.model.ToolResult;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.service.ToolExecutionLogger;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -35,6 +38,9 @@ public class WriteFileTool extends BaseTool<WriteFileTool.WriteFileParams> {
 
     @Autowired
     private ToolExecutionLogger executionLogger;
+
+    @Autowired
+    private EditFileTool editFileTool;
 
     public WriteFileTool(AppProperties appProperties) {
         super(
@@ -135,7 +141,7 @@ public class WriteFileTool extends BaseTool<WriteFileTool.WriteFileParams> {
                 }
 
                 // 生成差异显示
-                String diff = generateDiff(
+                String diff = editFileTool.generateDiff(
                         filePath.getFileName().toString(),
                         currentContent,
                         params.content
@@ -154,9 +160,7 @@ public class WriteFileTool extends BaseTool<WriteFileTool.WriteFileParams> {
         });
     }
 
-    /**
-     * Write file tool method for Spring AI integration
-     */
+
     @Tool(name = "write_file", description = "Creates a new file or overwrites an existing file with the specified content")
     public String writeFile(String filePath, String content) {
         long callId = executionLogger.logToolStart("write_file", "写入文件内容",
@@ -206,6 +210,7 @@ public class WriteFileTool extends BaseTool<WriteFileTool.WriteFileParams> {
     public CompletableFuture<ToolResult> execute(WriteFileParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
+                logger.info("开始写入文件: {}", params.filePath);
                 Path filePath = Paths.get(params.filePath);
                 boolean isNewFile = !Files.exists(filePath);
                 String originalContent = "";
@@ -238,41 +243,20 @@ public class WriteFileTool extends BaseTool<WriteFileTool.WriteFileParams> {
                     String displayMessage = String.format("Created %s (%d lines)", relativePath, lineCount);
                     return ToolResult.success(successMessage, displayMessage);
                 } else {
-                    String diff = generateDiff(filePath.getFileName().toString(), originalContent, params.content);
+                    String diff = editFileTool.generateDiff(filePath.getFileName().toString(), originalContent, params.content);
                     String successMessage = String.format("Successfully wrote to file: %s (%d lines, %d bytes)",
                             params.filePath, lineCount, byteCount);
                     return ToolResult.success(successMessage, new FileDiff(diff, filePath.getFileName().toString()));
                 }
 
             } catch (IOException e) {
-                logger.error("Error writing file: " + params.filePath, e);
+                logger.error("Error writing file: {}", params.filePath, e);
                 return ToolResult.error("Error writing file: " + e.getMessage());
             } catch (Exception e) {
-                logger.error("Unexpected error writing file: " + params.filePath, e);
+                logger.error("Unexpected error writing file: {}", params.filePath, e);
                 return ToolResult.error("Unexpected error: " + e.getMessage());
             }
         });
-    }
-
-    private String generateDiff(String fileName, String oldContent, String newContent) {
-        try {
-            List<String> oldLines = Arrays.asList(oldContent.split("\n"));
-            List<String> newLines = Arrays.asList(newContent.split("\n"));
-
-            Patch<String> patch = DiffUtils.diff(oldLines, newLines);
-            List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(
-                    fileName + " (Original)",
-                    fileName + " (New)",
-                    oldLines,
-                    patch,
-                    3 // context lines
-            );
-
-            return String.join("\n", unifiedDiff);
-        } catch (Exception e) {
-            logger.warn("Could not generate diff", e);
-            return "Diff generation failed: " + e.getMessage();
-        }
     }
 
     private void createBackup(Path filePath, String content) throws IOException {

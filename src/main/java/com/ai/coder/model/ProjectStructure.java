@@ -116,7 +116,7 @@ public class ProjectStructure {
     }
 
     /**
-     * Mark important directories based on project type
+     * 标记重要目录
      */
     public void markImportantDirectories() {
         if (projectType == null) return;
@@ -124,7 +124,6 @@ public class ProjectStructure {
         for (DirectoryInfo dir : directories) {
             String dirName = dir.getName().toLowerCase();
 
-            // Common important directories
             if (dirName.equals("src") || dirName.equals("source") ||
                     dirName.equals("test") || dirName.equals("tests") ||
                     dirName.equals("config") || dirName.equals("conf") ||
@@ -133,7 +132,6 @@ public class ProjectStructure {
                 continue;
             }
 
-            // Project type specific important directories
             switch (projectType) {
                 case JAVA_MAVEN:
                 case JAVA_GRADLE:

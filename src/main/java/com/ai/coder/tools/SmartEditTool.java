@@ -1,13 +1,9 @@
 package com.ai.coder.tools;
 
 import com.ai.coder.config.AppProperties;
-import com.ai.coder.model.ProjectContext;
+import com.ai.coder.model.*;
 import com.ai.coder.schema.JsonSchema;
 import com.ai.coder.service.ProjectContextAnalyzer;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data;
-import lombok.Getter;
-import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -31,7 +27,7 @@ import java.util.concurrent.CompletableFuture;
  * 智能编辑工具
  */
 @Component
-public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
+public class SmartEditTool extends BaseTool<SmartEditParams> {
 
     private static final Logger logger = LoggerFactory.getLogger(SmartEditTool.class);
 
@@ -164,29 +160,29 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
             return baseValidation;
         }
 
-        if (params.projectPath == null || params.projectPath.trim().isEmpty()) {
+        if (params.getProjectPath() == null || params.getProjectPath().trim().isEmpty()) {
             return "Project path cannot be empty";
         }
 
-        if (params.editDescription == null || params.editDescription.trim().isEmpty()) {
+        if (params.getEditDescription() == null || params.getEditDescription().trim().isEmpty()) {
             return "Edit description cannot be empty";
         }
 
-        Path projectPath = Paths.get(params.projectPath);
+        Path projectPath = Paths.get(params.getProjectPath());
         if (!projectPath.isAbsolute()) {
-            return "Project path must be absolute: " + params.projectPath;
+            return "Project path must be absolute: " + params.getProjectPath();
         }
 
         if (!Files.exists(projectPath)) {
-            return "Project path does not exist: " + params.projectPath;
+            return "Project path does not exist: " + params.getProjectPath();
         }
 
         if (!Files.isDirectory(projectPath)) {
-            return "Project path must be a directory: " + params.projectPath;
+            return "Project path must be a directory: " + params.getProjectPath();
         }
 
         if (!isWithinWorkspace(projectPath)) {
-            return "Project path must be within the workspace directory: " + params.projectPath;
+            return "Project path must be within the workspace directory: " + params.getProjectPath();
         }
 
         return null;
@@ -194,7 +190,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
 
     @Override
     public CompletableFuture<ToolConfirmationDetails> shouldConfirmExecute(SmartEditParams params) {
-        if (params.dryRun != null && params.dryRun) {
+        if (params.getDryRun() != null && params.getDryRun()) {
             return CompletableFuture.completedFuture(null); // No confirmation needed for dry run
         }
 
@@ -210,7 +206,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
 
                 return new ToolConfirmationDetails(
                         "smart_edit",
-                        "Confirm Smart Edit: " + params.editDescription,
+                        "Confirm Smart Edit: " + params.getEditDescription(),
                         "Smart edit operation confirmation",
                         confirmationMessage
                 );
@@ -226,17 +222,17 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
     public CompletableFuture<ToolResult> execute(SmartEditParams params) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                logger.info("Starting smart edit for project: {}", params.projectPath);
-                logger.info("Edit description: {}", params.editDescription);
+                logger.info("开始智能编辑项目: {}", params.getProjectPath());
+                logger.info("编辑描述: {}", params.getEditDescription());
 
                 // 1. Analyze project context
-                Path projectPath = Paths.get(params.projectPath);
+                Path projectPath = Paths.get(params.getProjectPath());
                 ProjectContext context = projectContextAnalyzer.analyzeProject(projectPath);
 
                 // 2. Generate edit plan
                 EditPlan plan = generateEditPlan(params, context);
 
-                if (params.dryRun != null && params.dryRun) {
+                if (params.getDryRun() != null && params.getDryRun()) {
                     return ToolResult.success(
                             "Dry run completed. Edit plan generated successfully.",
                             plan.toString()
@@ -246,7 +242,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
                 // 3. Execute edit plan
                 EditResult result = executeEditPlan(plan);
 
-                logger.info("Smart edit completed for project: {}", params.projectPath);
+                logger.info("智能编辑项目完成: {}", params.getProjectPath());
                 return ToolResult.success(
                         result.getSummary(),
                         result.getDetails()
@@ -263,7 +259,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
      * Analyze and generate edit plan
      */
     private EditPlan analyzeAndPlanEdit(SmartEditParams params) {
-        Path projectPath = Paths.get(params.projectPath);
+        Path projectPath = Paths.get(params.getProjectPath());
         ProjectContext context = projectContextAnalyzer.analyzeProject(projectPath);
         return generateEditPlan(params, context);
     }
@@ -272,15 +268,15 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
      * Generate edit plan
      */
     private EditPlan generateEditPlan(SmartEditParams params, ProjectContext context) {
-        logger.debug("Generating edit plan for: {}", params.editDescription);
+        logger.info("生成编辑计划: {}", params.getEditDescription());
 
         EditPlan plan = new EditPlan();
-        plan.setDescription(params.editDescription);
-        plan.setScope(EditScope.fromString(params.scope));
+        plan.setDescription(params.getEditDescription());
+        plan.setScope(EditScope.fromString(params.getScope()));
         plan.setProjectContext(context);
 
         // Use AI to analyze edit intent and generate specific edit steps
-        String editContext = buildEditContext(context, params.editDescription);
+        String editContext = buildEditContext(context, params.getEditDescription());
 
         List<EditStep> steps = generateEditSteps(editContext, params);
         plan.setSteps(steps);
@@ -364,7 +360,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
                 Actions can be: CREATE, EDIT, DELETE, RENAME
                 Be specific about which files need to be modified and what changes are needed.
                 Consider dependencies between files and the overall project structure.
-                """, editContext, params.editDescription);
+                """, editContext, params.getEditDescription());
     }
 
     /**
@@ -421,12 +417,12 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
         List<EditStep> steps = new ArrayList<>();
 
         // Simple fallback logic
-        if (params.targetFiles != null && !params.targetFiles.isEmpty()) {
-            for (String file : params.targetFiles) {
+        if (params.getTargetFiles() != null && !params.getTargetFiles().isEmpty()) {
+            for (String file : params.getTargetFiles()) {
                 EditStep step = new EditStep();
                 step.setAction("EDIT");
                 step.setTargetFile(file);
-                step.setDescription("Edit " + file + " according to: " + params.editDescription);
+                step.setDescription("Edit " + file + " according to: " + params.getEditDescription());
                 steps.add(step);
             }
         } else {
@@ -434,7 +430,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
             EditStep step = new EditStep();
             step.setAction("ANALYZE");
             step.setTargetFile("*");
-            step.setDescription("Analyze project and apply changes: " + params.editDescription);
+            step.setDescription("Analyze project and apply changes: " + params.getEditDescription());
             steps.add(step);
         }
 
@@ -453,7 +449,7 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
             try {
                 String stepResult = executeEditStep(step, plan.getProjectContext());
                 executedSteps.add(stepResult);
-                logger.debug("Executed step: {}", step.getDescription());
+                logger.info("执行编辑步骤: {}", step.getDescription());
             } catch (Exception e) {
                 String error = "Failed to execute step: " + step.getDescription() + " - " + e.getMessage();
                 errors.add(error);
@@ -526,73 +522,4 @@ public class SmartEditTool extends BaseTool<SmartEditTool.SmartEditParams> {
         }
     }
 
-    @Data
-    public static class SmartEditParams {
-        @JsonProperty("project_path")
-        private String projectPath;
-
-        @JsonProperty("edit_description")
-        private String editDescription;
-
-        @JsonProperty("target_files")
-        private List<String> targetFiles;
-
-        @JsonProperty("scope")
-        private String scope = "related_files";
-
-        @JsonProperty("dry_run")
-        private Boolean dryRun = false;
-
-    }
-
-    @Data
-    private static class EditPlan {
-        // Getters and Setters
-        private String description;
-        private EditScope scope;
-        private ProjectContext projectContext;
-        private List<EditStep> steps;
-
-    }
-
-    @Data
-    private static class EditStep {
-        // Getters and Setters
-        private String action;
-        private String targetFile;
-        private String description;
-
-    }
-
-    @Data
-    private static class EditResult {
-        private List<String> executedSteps;
-        private List<String> errors;
-        private String summary;
-        private String details;
-
-        public void generateSummary() {
-            int successCount = executedSteps.size();
-            int errorCount = errors.size();
-
-            this.summary = String.format("Smart edit completed: %d steps executed, %d errors",
-                    successCount, errorCount);
-
-            StringBuilder detailsBuilder = new StringBuilder();
-            detailsBuilder.append("Executed Steps:\n");
-            for (String step : executedSteps) {
-                detailsBuilder.append("✓ ").append(step).append("\n");
-            }
-
-            if (!errors.isEmpty()) {
-                detailsBuilder.append("\nErrors:\n");
-                for (String error : errors) {
-                    detailsBuilder.append("✗ ").append(error).append("\n");
-                }
-            }
-
-            this.details = detailsBuilder.toString();
-        }
-
-    }
 }

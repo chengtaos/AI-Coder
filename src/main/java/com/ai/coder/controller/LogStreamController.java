@@ -36,7 +36,7 @@ public class LogStreamController {
             return emitter;
         } catch (Exception e) {
             logger.error("❌ SSE连接建立失败: taskId={}, error={}", taskId, e.getMessage());
-            throw new RuntimeException("Failed to create SSE connection: " + e.getMessage());
+            throw new RuntimeException("创建SSE连接失败: " + e.getMessage());
         }
     }
 
